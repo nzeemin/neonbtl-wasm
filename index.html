@@ -1,0 +1,656 @@
+﻿<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>NeonBTL WASM</title>
+    <style>
+        html {
+            overflow-y: scroll;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            max-width: 100%;
+            overflow-x: hidden;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .emscripten {
+            padding-right: 0;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+
+        div.emupanel {
+            width: 852px;
+            margin-left: auto;
+            margin-right: auto;
+            border: none;
+            border-collapse: collapse;
+        }
+
+        div.emupanel-toolbar {
+            /*width: 100%;*/
+            text-align: left;
+            padding: 4px;
+        }
+
+        span.emupanel-registers {
+            font-family: monospace;
+        }
+
+        div.emupanel-main {
+            position: relative;
+            width: 852px;
+            padding: 0;
+            padding-top: 0;
+            display: block;
+            /*text-align: center;*/
+        }
+
+        div.emupanel-left {
+            position: absolute;
+            right: 852px;
+            padding: 8px;
+            font-family: monospace;
+            width: 100px;
+            text-align: left;
+        }
+
+        div.emupanel-left .command-button {
+            width: 94px;
+        }
+
+        div.emupanel-title {
+            font-family: Tahoma;
+            font-weight: bold;
+            /*text-shadow: 2px 4px 3px rgba(0,0,0,0.2);*/
+            padding-bottom: 12px;
+        }
+
+        div.emupanel-group {
+            padding-bottom: 8px;
+            font-family: monospace;
+        }
+
+        div.emupanel-radio {
+            white-space: nowrap;
+        }
+
+        div.emupanel-canvas {
+            padding: 7px;
+            background-color: #202020;
+            border-left: solid 3px #606060;
+            border-right: solid 3px #C0C0C0;
+            border-top: solid 3px #606060;
+            border-bottom: solid 3px #C0C0C0;
+        }
+
+        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+        canvas.emscripten {
+            border: 0 none;
+            background-color: black;
+            width: 832px;
+            height: 300px;
+        }
+
+        div.emupanel-keyboard {
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        textarea.emupanel-output {
+            width: 822px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #404040;
+            height: 150px;
+            margin: 4px;
+            padding: 0 0 0 0;
+            display: none;
+        }
+
+        .spinner {
+            height: 40px;
+            width: 40px;
+            margin: 0px auto;
+            -webkit-animation: rotation .8s linear infinite;
+            -moz-animation: rotation .8s linear infinite;
+            -o-animation: rotation .8s linear infinite;
+            animation: rotation 0.8s linear infinite;
+            border-left: 10px solid rgb(0,150,240);
+            border-right: 10px solid rgb(0,150,240);
+            border-bottom: 10px solid rgb(0,150,240);
+            border-top: 10px solid rgb(100,0,200);
+            border-radius: 100%;
+            background-color: rgb(200,100,250);
+        }
+
+        @-webkit-keyframes rotation {
+            from {
+                -webkit-transform: rotate(0deg);
+            }
+            to {
+                -webkit-transform: rotate(360deg);
+            }
+        }
+
+        @-moz-keyframes rotation {
+            from {
+                -moz-transform: rotate(0deg);
+            }
+            to {
+                -moz-transform: rotate(360deg);
+            }
+        }
+
+        @-o-keyframes rotation {
+            from {
+                -o-transform: rotate(0deg);
+            }
+            to {
+                -o-transform: rotate(360deg);
+            }
+        }
+
+        @keyframes rotation {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
+    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten">
+        <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+
+    <div class="emupanel">
+        <div class="emupanel-main">
+            <div class="emupanel-left">
+                <div class="emupanel-title">
+                    NeonBTL
+                </div>
+                <input id="buttonStart" type="button" class="command-button" value="Run" onclick="emulatorStart()">
+                <input type="button" class="command-button" value="Reset" onclick="Module.emulatorReset()">
+                <!--<input type="button" value="Frame" onclick="Module.systemFrame()">-->
+                <!--<input type="button" value="25 Frames" onclick="emulatorSystemFrame25()">-->
+                <!--<input type="button" value="Draw Screen" onclick="Module.drawScreen()">-->
+                <!--<div style="white-space: nowrap; margin-top: 8px;">
+                    <input id="fileimg" type="file" onchange="emulatorLoadState(this);" style="display: none" />
+                    <input type="button" id="loadimg" class="command-button" value="Load State…" onclick="document.getElementById('fileimg').click();" />
+                </div>-->
+                <div id="uptime" style="white-space: nowrap; margin-top: 8px; min-height: 24px;"></div>
+                <!--<div id="register" style="white-space: nowrap; margin-top: 8px; min-height: 24px;"></div>-->
+                <div class="emupanel-group">
+                    Disks:
+                    <div style="white-space: nowrap">
+                        0: <label id="labeldsk0"></label>
+                        <input id="filedsk0" type="file" onchange="emulatorAttachFileInput(this, 0);" style="display: none"/>
+                        <input type="button" id="attachdsk0" value="Attach…" onclick="document.getElementById('filedsk0').click();" />
+                        <input type="button" id="detachdsk0" value="Detach" style="display: none" onclick="emulatorDetachFloppy(this, 0);"/>
+                    </div>
+                    <div style="white-space: nowrap">
+                        1: <label id="labeldsk1"></label>
+                        <input id="filedsk1" type="file" onchange="emulatorAttachFileInput(this, 1);" style="display: none"/>
+                        <input type="button" id="attachdsk1" value="Attach…" onclick="document.getElementById('filedsk1').click();" />
+                        <input type="button" id="detachdsk1" value="Detach" style="display: none" onclick="emulatorDetachFloppy(this, 1);"/>
+                    </div>
+                </div>
+            </div>
+            <div class="emupanel-canvas">
+                <canvas class="emscripten" id="canvas" width="832" height="300" oncontextmenu="event.preventDefault()" style="height: 600px;"></canvas>
+            </div>
+            <div class="emupanel-keyboard">
+                <img src="keyboard.png" width="610" height="212" usemap="#keyboard" alt=""/>
+            </div>
+            <map name="keyboard">
+                <area shape="rect" coords="018,015,060,042" alt="0010" href="javascript:void(0)" onmousedown="emulatorKeyPress(8)" onmouseup="emulatorKeyRelease(8)"/>
+                <area shape="rect" coords="062,015,104,042" alt="0011" href="javascript:void(0)" onmousedown="emulatorKeyPress(9)" onmouseup="emulatorKeyRelease(9)"/>
+                <area shape="rect" coords="106,015,148,042" alt="0012" href="javascript:void(0)" onmousedown="emulatorKeyPress(10)" onmouseup="emulatorKeyRelease(10)"/>
+                <area shape="rect" coords="151,015,193,042" alt="0014" href="javascript:void(0)" onmousedown="emulatorKeyPress(12)" onmouseup="emulatorKeyRelease(12)"/>
+                <area shape="rect" coords="195,015,237,042" alt="0015" href="javascript:void(0)" onmousedown="emulatorKeyPress(13)" onmouseup="emulatorKeyRelease(13)"/>
+                <area shape="rect" coords="343,015,385,042" alt="0172" href="javascript:void(0)" onmousedown="emulatorKeyPress(122)" onmouseup="emulatorKeyRelease(122)"/>
+                <area shape="rect" coords="387,015,429,042" alt="0152" href="javascript:void(0)" onmousedown="emulatorKeyPress(106)" onmouseup="emulatorKeyRelease(106)"/>
+                <area shape="rect" coords="431,015,473,042" alt="0151" href="javascript:void(0)" onmousedown="emulatorKeyPress(105)" onmouseup="emulatorKeyRelease(105)"/>
+                <area shape="rect" coords="506,015,548,042" alt="0171" href="javascript:void(0)" onmousedown="emulatorKeyPress(121)" onmouseup="emulatorKeyRelease(121)"/>
+                <area shape="rect" coords="551,015,593,042" alt="0004" href="javascript:void(0)" onmousedown="emulatorKeyPress(4)" onmouseup="emulatorKeyRelease(4)"/>
+                <!-- 1st row -->
+                <area shape="rect" coords="018,056,046,083" alt="0006" href="javascript:void(0)" onmousedown="emulatorKeyPress(6)" onmouseup="emulatorKeyRelease(6)"/>
+                <area shape="rect" coords="047,056,075,083" alt="0007" href="javascript:void(0)" onmousedown="emulatorKeyPress(7)" onmouseup="emulatorKeyRelease(7)"/>
+                <area shape="rect" coords="077,056,104,083" alt="0030" href="javascript:void(0)" onmousedown="emulatorKeyPress(24)" onmouseup="emulatorKeyRelease(24)"/>
+                <area shape="rect" coords="106,056,134,083" alt="0031" href="javascript:void(0)" onmousedown="emulatorKeyPress(25)" onmouseup="emulatorKeyRelease(25)"/>
+                <area shape="rect" coords="136,056,163,083" alt="0032" href="javascript:void(0)" onmousedown="emulatorKeyPress(26)" onmouseup="emulatorKeyRelease(26)"/>
+                <area shape="rect" coords="165,056,193,083" alt="0013" href="javascript:void(0)" onmousedown="emulatorKeyPress(11)" onmouseup="emulatorKeyRelease(11)"/>
+                <area shape="rect" coords="195,056,222,083" alt="0034" href="javascript:void(0)" onmousedown="emulatorKeyPress(28)" onmouseup="emulatorKeyRelease(28)"/>
+                <area shape="rect" coords="224,056,252,083" alt="0035" href="javascript:void(0)" onmousedown="emulatorKeyPress(29)" onmouseup="emulatorKeyRelease(29)"/>
+                <area shape="rect" coords="254,056,281,083" alt="0016" href="javascript:void(0)" onmousedown="emulatorKeyPress(14)" onmouseup="emulatorKeyRelease(14)"/>
+                <area shape="rect" coords="283,056,311,083" alt="0017" href="javascript:void(0)" onmousedown="emulatorKeyPress(15)" onmouseup="emulatorKeyRelease(15)"/>
+                <area shape="rect" coords="313,056,340,083" alt="0177" href="javascript:void(0)" onmousedown="emulatorKeyPress(127)" onmouseup="emulatorKeyRelease(127)"/>
+                <area shape="rect" coords="342,056,370,083" alt="0176" href="javascript:void(0)" onmousedown="emulatorKeyPress(126)" onmouseup="emulatorKeyRelease(126)"/>
+                <area shape="rect" coords="372,056,399,083" alt="0175" href="javascript:void(0)" onmousedown="emulatorKeyPress(125)" onmouseup="emulatorKeyRelease(125)"/>
+                <area shape="rect" coords="401,056,429,083" alt="0173" href="javascript:void(0)" onmousedown="emulatorKeyPress(123)" onmouseup="emulatorKeyRelease(123)"/>
+                <area shape="rect" coords="431,056,473,083" alt="0132" href="javascript:void(0)" onmousedown="emulatorKeyPress(90)" onmouseup="emulatorKeyRelease(90)"/>
+                <!-- 2nd row -->
+                <area shape="rect" coords="018,086,060,113" alt="0026" href="javascript:void(0)" onmousedown="emulatorKeyPress(22)" onmouseup="emulatorKeyRelease(22)"/>
+                <area shape="rect" coords="062,086,089,113" alt="0027" href="javascript:void(0)" onmousedown="emulatorKeyPress(23)" onmouseup="emulatorKeyRelease(23)"/>
+                <area shape="rect" coords="091,086,119,113" alt="0050" href="javascript:void(0)" onmousedown="emulatorKeyPress(40)" onmouseup="emulatorKeyRelease(40)"/>
+                <area shape="rect" coords="121,086,148,113" alt="0051" href="javascript:void(0)" onmousedown="emulatorKeyPress(41)" onmouseup="emulatorKeyRelease(41)"/>
+                <area shape="rect" coords="150,086,178,113" alt="0052" href="javascript:void(0)" onmousedown="emulatorKeyPress(42)" onmouseup="emulatorKeyRelease(42)"/>
+                <area shape="rect" coords="180,086,207,113" alt="0033" href="javascript:void(0)" onmousedown="emulatorKeyPress(27)" onmouseup="emulatorKeyRelease(27)"/>
+                <area shape="rect" coords="210,086,238,113" alt="0054" href="javascript:void(0)" onmousedown="emulatorKeyPress(44)" onmouseup="emulatorKeyRelease(44)"/>
+                <area shape="rect" coords="239,086,266,113" alt="0055" href="javascript:void(0)" onmousedown="emulatorKeyPress(45)" onmouseup="emulatorKeyRelease(45)"/>
+                <area shape="rect" coords="269,086,296,113" alt="0036" href="javascript:void(0)" onmousedown="emulatorKeyPress(30)" onmouseup="emulatorKeyRelease(30)"/>
+                <area shape="rect" coords="298,086,326,113" alt="0037" href="javascript:void(0)" onmousedown="emulatorKeyPress(31)" onmouseup="emulatorKeyRelease(31)"/>
+                <area shape="rect" coords="328,086,355,113" alt="0157" href="javascript:void(0)" onmousedown="emulatorKeyPress(111)" onmouseup="emulatorKeyRelease(111)"/>
+                <area shape="rect" coords="357,086,385,113" alt="0156" href="javascript:void(0)" onmousedown="emulatorKeyPress(110)" onmouseup="emulatorKeyRelease(110)"/>
+                <area shape="rect" coords="387,086,414,113" alt="0155" href="javascript:void(0)" onmousedown="emulatorKeyPress(109)" onmouseup="emulatorKeyRelease(109)"/>
+                <area shape="rect" coords="416,086,444,113" alt="0174" href="javascript:void(0)" onmousedown="emulatorKeyPress(124)" onmouseup="emulatorKeyRelease(124)"/>
+                <!-- 3rd row -->
+                <area shape="rect" coords="018,115,067,142" alt="0046" href="javascript:void(0)" onmousedown="emulatorKeyPress(38)" onmouseup="emulatorKeyRelease(38)"/>
+                <area shape="rect" coords="069,115,097,142" alt="0047" href="javascript:void(0)" onmousedown="emulatorKeyPress(39)" onmouseup="emulatorKeyRelease(39)"/>
+                <area shape="rect" coords="099,115,126,142" alt="0070" href="javascript:void(0)" onmousedown="emulatorKeyPress(56)" onmouseup="emulatorKeyRelease(56)"/>
+                <area shape="rect" coords="128,115,156,142" alt="0071" href="javascript:void(0)" onmousedown="emulatorKeyPress(57)" onmouseup="emulatorKeyRelease(57)"/>
+                <area shape="rect" coords="158,115,185,142" alt="0072" href="javascript:void(0)" onmousedown="emulatorKeyPress(58)" onmouseup="emulatorKeyRelease(58)"/>
+                <area shape="rect" coords="187,115,215,142" alt="0053" href="javascript:void(0)" onmousedown="emulatorKeyPress(43)" onmouseup="emulatorKeyRelease(43)"/>
+                <area shape="rect" coords="217,115,244,142" alt="0074" href="javascript:void(0)" onmousedown="emulatorKeyPress(60)" onmouseup="emulatorKeyRelease(60)"/>
+                <area shape="rect" coords="246,115,274,142" alt="0075" href="javascript:void(0)" onmousedown="emulatorKeyPress(61)" onmouseup="emulatorKeyRelease(61)"/>
+                <area shape="rect" coords="276,115,303,142" alt="0056" href="javascript:void(0)" onmousedown="emulatorKeyPress(46)" onmouseup="emulatorKeyRelease(46)"/>
+                <area shape="rect" coords="305,115,333,142" alt="0057" href="javascript:void(0)" onmousedown="emulatorKeyPress(47)" onmouseup="emulatorKeyRelease(47)"/>
+                <area shape="rect" coords="335,115,362,142" alt="0137" href="javascript:void(0)" onmousedown="emulatorKeyPress(95)" onmouseup="emulatorKeyRelease(95)"/>
+                <area shape="rect" coords="364,115,392,142" alt="0136" href="javascript:void(0)" onmousedown="emulatorKeyPress(94)" onmouseup="emulatorKeyRelease(94)"/>
+                <area shape="rect" coords="394,115,429,142" alt="0135" href="javascript:void(0)" onmousedown="emulatorKeyPress(93)" onmouseup="emulatorKeyRelease(93)"/>
+                <!-- 4th row -->
+                <area shape="rect" coords="018,145,053,172" alt="0106" href="javascript:void(0)" onmousedown="emulatorKeyPress(70)" onmouseup="emulatorKeyRelease(70)"/>
+                <area shape="rect" coords="055,145,082,172" alt="0066" href="javascript:void(0)" onmousedown="emulatorKeyPress(54)" onmouseup="emulatorKeyRelease(54)"/>
+                <area shape="rect" coords="084,145,112,172" alt="0067" href="javascript:void(0)" onmousedown="emulatorKeyPress(55)" onmouseup="emulatorKeyRelease(55)"/>
+                <area shape="rect" coords="114,145,141,172" alt="0110" href="javascript:void(0)" onmousedown="emulatorKeyPress(72)" onmouseup="emulatorKeyRelease(72)"/>
+                <area shape="rect" coords="143,145,171,172" alt="0111" href="javascript:void(0)" onmousedown="emulatorKeyPress(73)" onmouseup="emulatorKeyRelease(73)"/>
+                <area shape="rect" coords="173,145,200,172" alt="0112" href="javascript:void(0)" onmousedown="emulatorKeyPress(74)" onmouseup="emulatorKeyRelease(74)"/>
+                <area shape="rect" coords="202,145,230,172" alt="0073" href="javascript:void(0)" onmousedown="emulatorKeyPress(59)" onmouseup="emulatorKeyRelease(59)"/>
+                <area shape="rect" coords="232,145,259,172" alt="0114" href="javascript:void(0)" onmousedown="emulatorKeyPress(76)" onmouseup="emulatorKeyRelease(76)"/>
+                <area shape="rect" coords="261,145,289,172" alt="0115" href="javascript:void(0)" onmousedown="emulatorKeyPress(77)" onmouseup="emulatorKeyRelease(77)"/>
+                <area shape="rect" coords="291,145,318,172" alt="0076" href="javascript:void(0)" onmousedown="emulatorKeyPress(62)" onmouseup="emulatorKeyRelease(62)"/>
+                <area shape="rect" coords="320,145,348,172" alt="0077" href="javascript:void(0)" onmousedown="emulatorKeyPress(63)" onmouseup="emulatorKeyRelease(63)"/>
+                <area shape="rect" coords="350,145,384,172" alt="0117" href="javascript:void(0)" onmousedown="emulatorKeyPress(79)" onmouseup="emulatorKeyRelease(79)"/>
+                <!-- Lower row -->
+                <area shape="rect" coords="018,174,074,201" alt="0105" href="javascript:void(0)" onmousedown="emulatorKeyPress(69)" onmouseup="emulatorKeyRelease(69)"/>
+                <area shape="rect" coords="077,174,111,201" alt="0107" href="javascript:void(0)" onmousedown="emulatorKeyPress(71)" onmouseup="emulatorKeyRelease(71)"/>
+                <area shape="rect" coords="114,174,325,201" alt="0113" href="javascript:void(0)" onmousedown="emulatorKeyPress(75)" onmouseup="emulatorKeyRelease(75)"/>
+                <area shape="rect" coords="328,174,384,201" alt="0133" href="javascript:void(0)" onmousedown="emulatorKeyPress(69)" onmouseup="emulatorKeyRelease(69)"/>
+                <!-- Enter -->
+                <area shape="poly" coords="431,116,446,116,446,86,473,86,473,142,431,142" alt="0153" href="javascript:void(0)" onmousedown="emulatorKeyPress(107)" onmouseup="emulatorKeyRelease(107)"/>
+                <!-- Arrows -->
+                <area shape="rect" coords="387,145,414,201" alt="0116" href="javascript:void(0)" onmousedown="emulatorKeyPress(78)" onmouseup="emulatorKeyRelease(78)"/>
+                <area shape="rect" coords="416,145,444,172" alt="0154" href="javascript:void(0)" onmousedown="emulatorKeyPress(108)" onmouseup="emulatorKeyRelease(108)"/>
+                <area shape="rect" coords="416,174,444,201" alt="0134" href="javascript:void(0)" onmousedown="emulatorKeyPress(92)" onmouseup="emulatorKeyRelease(92)"/>
+                <area shape="rect" coords="446,145,473,201" alt="0133" href="javascript:void(0)" onmousedown="emulatorKeyPress(91)" onmouseup="emulatorKeyRelease(91)"/>
+                <!-- Numpad-->
+                <area shape="rect" coords="506,056,534,083" alt="0131" href="javascript:void(0)" onmousedown="emulatorKeyPress(89)" onmouseup="emulatorKeyRelease(89)"/>
+                <area shape="rect" coords="536,056,563,083" alt="0025" href="javascript:void(0)" onmousedown="emulatorKeyPress(21)" onmouseup="emulatorKeyRelease(21)"/>
+                <area shape="rect" coords="565,056,593,083" alt="0005" href="javascript:void(0)" onmousedown="emulatorKeyPress(5)" onmouseup="emulatorKeyRelease(5)"/>
+                <area shape="rect" coords="506,086,534,113" alt="0125" href="javascript:void(0)" onmousedown="emulatorKeyPress(85)" onmouseup="emulatorKeyRelease(85)"/>
+                <area shape="rect" coords="536,086,563,113" alt="0145" href="javascript:void(0)" onmousedown="emulatorKeyPress(101)" onmouseup="emulatorKeyRelease(101)"/>
+                <area shape="rect" coords="565,086,593,113" alt="0165" href="javascript:void(0)" onmousedown="emulatorKeyPress(117)" onmouseup="emulatorKeyRelease(117)"/>
+                <area shape="rect" coords="506,115,534,142" alt="0130" href="javascript:void(0)" onmousedown="emulatorKeyPress(88)" onmouseup="emulatorKeyRelease(88)"/>
+                <area shape="rect" coords="536,115,563,142" alt="0150" href="javascript:void(0)" onmousedown="emulatorKeyPress(104)" onmouseup="emulatorKeyRelease(104)"/>
+                <area shape="rect" coords="565,115,593,142" alt="0170" href="javascript:void(0)" onmousedown="emulatorKeyPress(120)" onmouseup="emulatorKeyRelease(120)"/>
+                <area shape="rect" coords="506,145,534,172" alt="0127" href="javascript:void(0)" onmousedown="emulatorKeyPress(87)" onmouseup="emulatorKeyRelease(87)"/>
+                <area shape="rect" coords="536,145,563,172" alt="0147" href="javascript:void(0)" onmousedown="emulatorKeyPress(103)" onmouseup="emulatorKeyRelease(103)"/>
+                <area shape="rect" coords="565,145,593,172" alt="0167" href="javascript:void(0)" onmousedown="emulatorKeyPress(119)" onmouseup="emulatorKeyRelease(119)"/>
+                <area shape="rect" coords="506,174,534,201" alt="0126" href="javascript:void(0)" onmousedown="emulatorKeyPress(86)" onmouseup="emulatorKeyRelease(86)"/>
+                <area shape="rect" coords="536,174,563,201" alt="0146" href="javascript:void(0)" onmousedown="emulatorKeyPress(102)" onmouseup="emulatorKeyRelease(102)"/>
+                <area shape="rect" coords="565,174,593,201" alt="0166" href="javascript:void(0)" onmousedown="emulatorKeyPress(118)" onmouseup="emulatorKeyRelease(118)"/>
+            </map>
+        </div>
+        <textarea class="emupanel-output" id="output" rows="8"></textarea>
+    </div>
+
+    <script type='text/javascript'>
+        var statusElement = document.getElementById('status');
+        var progressElement = document.getElementById('progress');
+        var spinnerElement = document.getElementById('spinner');
+
+        // Цифры, латинские буквы, '[', ']'
+        // Enter (не различает Numpad Enter)
+        // Space, arrow keys, Tab, Backspace
+        // Numpad цифры
+        // НР = Shift
+        // УПР = Ctrl
+        var keyCodeToUkncScanLat = new Array(
+            /*     0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f  */
+            /*0*/ 000, 000, 000, 000, 000, 000, 000, 000,  90,  22, 000, 000, 000, 107, 000, 000,
+            /*1*/  69,  38, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*2*/  75, 000, 000, 000, 000,  78, 108,  91,  92, 000, 000, 000, 000, 000, 000, 000,
+            /*3*/ 126,  24,  25,  26,  11,  28,  29,  14,  15, 127, 000, 000, 000, 000, 000, 000,
+            /*4*/ 000,  58,  62,  40,  47,  27,  39,  45, 110,  59,  23,  42,  46,  74,  44,  61,
+            /*5*/  43,  55,  60,  73,  76,  41,  95,  57,  77,  56, 111, 000, 000, 000, 000, 000,
+            /*6*/  86,  87, 103, 119,  88, 104, 120,  85, 101, 117, 000, 000, 000, 000, 000, 000,
+            /*7*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*8*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*9*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*a*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*b*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*c*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*d*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,  30, 000,  31, 000, 000,
+            /*e*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000,
+            /*f*/ 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000, 000
+        );
+
+        function normalizeUrl(url) {
+            if (!url)
+                return url;
+            if (url.startsWith('http://') || url.startsWith('https://'))
+                return url;
+            if (url.startsWith('/'))
+                return window.location.protocol + '//' + window.location.host + url;
+            return window.location.protocol + '//' + window.location.host + '/' + pathname + '/' + url;
+        }
+
+        var Module = {
+            preRun: [
+                function () {
+                    self.canvasContext = self.canvas.getContext('2d');
+                    self.canvasContext.globalAlpha = 1.0;
+                    self.canvasImageData = self.canvasContext.getImageData(0, 0, 832, 300);
+                }
+            ],
+            postRun: [
+                function () {
+                    // Load disks if specified
+                    for (var slot = 0; slot < 2; slot++) {
+                        var paramDisk = normalizeUrl(getParameterByName('disk' + slot));
+                        if (paramDisk && paramDisk.substr(0, 4) == 'http') {
+                            console.log('Loading disk ' + slot.toString() + ' image from ' + paramDisk);
+                            var data = loadBinaryResource(paramDisk);
+                            if (!data || data.length > 819200) {
+                                console.log('Failed to download the disk image from ' + paramDisk);
+                                return;
+                            }
+                            var filename = paramDisk.replace(/^.*[\\\/]/, '')
+                            Module.emulatorAttachFloppy(slot, data, filename);
+                            document.getElementById('labeldsk' + slot).innerText = filename;
+                            document.getElementById('attachdsk' + slot).style.display = 'none';
+                            document.getElementById('detachdsk' + slot).style.display = 'inline';
+                        }
+                    }
+                    // Load saved state if specified
+                    var paramState = normalizeUrl(getParameterByName('state'));
+                    if (paramState && paramState.substr(0, 4) == 'http') {
+                        console.log('Loading state from ' + paramState);
+                        var data = loadBinaryResource(paramState);
+                        if (!data || data.length > 229888) {
+                            console.log('Failed to download the state image from ' + paramState);
+                            return;
+                        }
+                        var filename = paramState.replace(/^.*[\\\/]/, '')
+                        Module.emulatorLoadImage(data, filename);
+                    }
+                    // Autorun & bootup
+                    var paramAutorun = getParameterByName('run');
+                    if (paramAutorun)
+                        emulatorStart();
+
+                    document.addEventListener('keydown', function(event) {
+                        //TODO: if emulator not running - don't process
+                        //console.log(event.keyCode.toString(16));
+                        //TODO: Emulator_GetKeyboardRegister()
+                        var scan = keyCodeToUkncScanLat[event.keyCode];
+                        if (scan != 0) {
+                            Module.emulatorKeyEvent(scan, true);
+                            event.preventDefault();
+                        }
+                    }, true);
+                    document.addEventListener('keyup', function(event) {
+                        //TODO: if emulator not running - don't process
+                        //TODO: Emulator_GetKeyboardRegister()
+                        var scan = keyCodeToUkncScanLat[event.keyCode];
+                        if (scan != 0) {
+                            Module.emulatorKeyEvent(scan, false);
+                            event.preventDefault();
+                        }
+                    }, true);
+                }
+            ],
+            print: (function () {
+                var element = document.getElementById('output');
+                if (element) element.value = ''; // clear browser cache
+                return function (text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    // These replacements are necessary if you render to raw HTML
+                    //text = text.replace(/&/g, "&amp;");
+                    //text = text.replace(/</g, "&lt;");
+                    //text = text.replace(/>/g, "&gt;");
+                    //text = text.replace('\n', '<br>', 'g');
+                    console.log(text);
+                    if (element) {
+                        element.value += text + "\n";
+                        element.scrollTop = element.scrollHeight; // focus on bottom
+                    }
+                };
+            })(),
+            printErr: function (text) {
+                if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                if (0) { // XXX disabled for safety typeof dump == 'function') {
+                    dump(text + '\n'); // fast, straight to the real console
+                } else {
+                    console.error(text);
+                }
+            },
+            canvas: (function () {
+                var canvas = document.getElementById('canvas');
+
+                // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+                // application robust, you may want to override this behavior before shipping!
+                // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+                //canvas.addEventListener("webglcontextlost", function (e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
+                return canvas;
+            })(),
+            setStatus: function (text) {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                if (m && now - Date.now() < 30) return; // if this is a progress update, skip it if too soon
+                if (m) {
+                    text = m[1];
+                    progressElement.value = parseInt(m[2]) * 100;
+                    progressElement.max = parseInt(m[4]) * 100;
+                    progressElement.hidden = false;
+                    spinnerElement.hidden = false;
+                } else {
+                    progressElement.value = null;
+                    progressElement.max = null;
+                    progressElement.hidden = true;
+                    if (!text) spinnerElement.hidden = true;
+                }
+                statusElement.innerHTML = text;
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function (left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            },
+            emulatorStart: function () {
+                Module.ccall('Emulator_Start', null, null, null);
+            },
+            emulatorReset: function () {
+                Module.ccall('Emulator_Reset', null, null, null);
+            },
+            emulatorKeyEvent: function (scan, pressRelease) {
+                Module.ccall('Emulator_KeyEvent', null, ['number', 'number'], [scan, pressRelease]);
+            },
+            drawScreen: function () {
+                var ptrFrameBuffer = Module.ccall('Emulator_PrepareScreen', 'number', null, null);
+                var buffer = Module.HEAPU8.subarray(ptrFrameBuffer, ptrFrameBuffer + 832 * 300 * 4);
+                //console.log(buffer);
+                var buffer8 = new Uint8ClampedArray(buffer);
+                //console.log(buffer8);
+                self.canvasImageData.data.set(buffer8);
+                //console.log(self.canvasImageData.data);
+                self.canvasContext.putImageData(self.canvasImageData, 0, 0);
+            },
+            systemFrame: function () {
+                Module.ccall('Emulator_SystemFrame', null, null, null);
+                //var regval = Module.ccall('Emulator_GetReg', 'number', null, null);
+                //document.getElementById('register').innerText = 'PC ' + (regval < 0 ? regval + 65536 : regval).toString(8);
+            },
+            emulatorAttachFloppy : function(slot, data, filename) {
+                //console.log('emulatorAttachFloppy', data);
+                Module.ccall('Emulator_DetachFloppyImage', null, ['number'], [slot]);
+                if (filename && filename.toLowerCase().endsWith('.zip')) {
+                    Module['FS_createDataFile']('/', 'zip', data, true, true, true);
+                    Module.ccall('Emulator_Unzip', null, ['string','string'], ['zip', 'dsk' + slot]);
+                }
+                else {
+                    Module['FS_createDataFile']('/', 'dsk' + slot, data, true, true, true);
+                }
+                Module.ccall('Emulator_AttachFloppyImage', null, ['number'], [slot]);
+            },
+            emulatorDetachFloppy : function(slot) {
+                Module.ccall('Emulator_DetachFloppyImage', null, ['number'], [slot]);
+            },
+            emulatorLoadImage : function(data, filename) {
+                if (filename && filename.toLowerCase().endsWith('.zip')) {
+                    Module['FS_createDataFile']('/', 'zip', data, true, true, true);
+                    Module.ccall('Emulator_Unzip', null, ['string','string'], ['zip', 'image']);
+                }
+                else {
+                    Module['FS_createDataFile']('/', 'image', data, true, true, true);
+                }
+                Module.ccall('Emulator_LoadImage', null, null, null);
+                this.drawScreen();
+            }
+        };
+
+        Module.setStatus('Downloading...');
+        window.onerror = function () {
+            Module.setStatus('Exception thrown, see JavaScript console');
+            spinnerElement.style.display = 'none';
+            Module.setStatus = function (text) {
+                if (text) Module.printErr('[post-exception status] ' + text);
+            };
+        };
+
+        function getParameterByName(name) {
+            var url = window.location.href;
+            name = name.replace(/[\[\]]/g, "\\$&");
+            var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+
+        function loadBinaryResource(url) {
+            var byteArray = [];
+            var req = new XMLHttpRequest();
+            req.open('GET', url, false);
+            req.overrideMimeType('text\/plain; charset=x-user-defined');
+            req.send(null);
+            if (req.status != 200) return byteArray;
+            for (var i = 0; i < req.responseText.length; ++i) {
+                byteArray.push(req.responseText.charCodeAt(i) & 0xff);
+            }
+            return byteArray;
+        }
+
+        var emulatorStarted = false;
+
+        function emulatorStart() {
+            if (emulatorStarted) {
+                emulatorStarted = false;
+                document.getElementById('buttonStart').style.borderStyle = 'outset';
+                return;
+            }
+            emulatorStarted = true;
+            document.getElementById('buttonStart').style.borderStyle = 'inset';
+
+            //Module.emulatorStart();
+
+            setTimeout(emulatorNextFrame, 1);
+        }
+
+        function emulatorNextFrame() {
+            if (!emulatorStarted)
+                return;
+
+            Module.systemFrame();
+            Module.systemFrame(); //TODO
+
+            Module.drawScreen();
+
+            var uptime = Module.ccall('Emulator_GetUptime', 'number', null, null);
+            document.getElementById('uptime').innerText = 'Uptime: ' + uptime.toString();
+
+            setTimeout(emulatorNextFrame, 40);
+        }
+
+        function emulatorKeyPress(scan) {
+            Module.emulatorKeyEvent(scan, true);
+        }
+        function emulatorKeyRelease(scan) {
+            Module.emulatorKeyEvent(scan, false);
+        }
+
+        function emulatorAttachFileInput(fileInput, slot) {
+            if (fileInput.files.length == 0)
+                return;
+            var file = fileInput.files[0];
+            if (file.size > 819200)
+                return;
+
+            var fr = new FileReader();
+            fr.onload = function () {
+                var dataarr = new Uint8Array(fr.result);
+                Module.emulatorAttachFloppy(slot, dataarr, file.name);
+
+                fileInput.value = '';
+                document.getElementById('labeldsk' + slot).innerText = file.name;
+                document.getElementById('attachdsk' + slot).style.display = 'none';
+                document.getElementById('detachdsk' + slot).style.display = 'inline';
+            };
+            fr.readAsArrayBuffer(file);
+        }
+
+        function emulatorDetachFloppy(button, slot) {
+            Module.emulatorDetachFloppy(slot);
+
+            document.getElementById('labeldsk' + slot).innerText = '';
+            document.getElementById('attachdsk' + slot).style.display = 'inline';
+            document.getElementById('detachdsk' + slot).style.display = 'none';
+        }
+
+        function emulatorLoadState(fileInput) {
+            if (emulatorStarted)
+                emulatorStart();  // Stop
+
+            if (fileInput.files.length == 0)
+                return;
+            var file = fileInput.files[0];
+            if (file.size > 229888)
+                return;
+
+            var fr = new FileReader();
+            fr.onload = function () {
+                var dataarr = new Uint8Array(fr.result);
+                Module.emulatorLoadImage(dataarr, file.name);
+
+                fileInput.value = '';
+            };
+            fr.readAsArrayBuffer(file);
+        }
+    </script>
+    <script async type="text/javascript" src="emul.js"></script>
+</body>
+</html>
