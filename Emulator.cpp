@@ -180,7 +180,8 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE void Emulator_KeyEvent(uint16_t vscan, bool pressed)
     {
-        printf("Emulator_KeyEvent(%04o, %d)\n", vscan, pressed);
+        if (pressed)
+            printf("Emulator_KeyEvent(%03x, %d)\n", vscan, pressed);
         if (vscan == 0)
             return;
 
