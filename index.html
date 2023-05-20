@@ -45,7 +45,7 @@
 
         div.emupanel-main {
             position: relative;
-            width: 852px;
+            width: 832px;
             padding: 0;
             padding-top: 0;
             display: block;
@@ -54,7 +54,7 @@
 
         div.emupanel-left {
             position: absolute;
-            right: 852px;
+            right: 716px;
             padding: 8px;
             font-family: monospace;
             width: 100px;
@@ -83,7 +83,7 @@
 
         div.emupanel-right {
             position: absolute;
-            left: 852px;
+            left: 716px;
             padding: 8px;
             font-family: monospace;
         }
@@ -182,6 +182,9 @@
     </div>
 
     <div class="emupanel">
+        <div class="emupanel-canvas">
+            <canvas class="emscripten" id="canvas" width="832" height="300" oncontextmenu="event.preventDefault()" style="height: 600px;"></canvas>
+        </div>
         <div class="emupanel-main">
             <div class="emupanel-left">
                 <div class="emupanel-title">
@@ -215,9 +218,6 @@
                         <input type="button" id="detachdsk1" value="Detach" style="display: none" onclick="emulatorDetachFloppy(this, 1);"/>
                     </div>
                 </div>
-            </div>
-            <div class="emupanel-canvas">
-                <canvas class="emscripten" id="canvas" width="832" height="300" oncontextmenu="event.preventDefault()" style="height: 600px;"></canvas>
             </div>
             <div class="emupanel-keyboard">
                 <img src="keyboard.png" width="610" height="212" usemap="#keyboard" alt=""/>
