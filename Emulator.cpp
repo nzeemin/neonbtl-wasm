@@ -48,6 +48,9 @@ uint32_t m_dwTickCount = 0;
 uint32_t m_dwEmulatorUptime = 0;  // Machine uptime, seconds, from turn on or reset, increments every 25 frames
 long m_nUptimeFrameCount = 0;
 
+uint8_t m_KeyboardMatrix[8];
+
+
 //////////////////////////////////////////////////////////////////////
 
 
@@ -58,6 +61,8 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE void Emulator_Init()
     {
         printf("Emulator_Init()\n");
+
+        ::memset(m_KeyboardMatrix, 0, sizeof(m_KeyboardMatrix));
 
         g_pFrameBuffer = (uint32_t*)malloc(NEON_SCREEN_WIDTH * NEON_SCREEN_HEIGHT * sizeof(uint32_t));
 
@@ -173,10 +178,18 @@ extern "C" {
         return (void*)g_pFrameBuffer;
     }
 
-    EMSCRIPTEN_KEEPALIVE void Emulator_KeyEvent(uint8_t keyscan, bool pressed)
+    EMSCRIPTEN_KEEPALIVE void Emulator_KeyEvent(uint16_t vscan, bool pressed)
     {
-        //printf("Emulator_KeyEvent(%04o, %d)\n", keyscan, pressed);
-        //ScreenView_PutKeyEventToQueue(uint16_t(keyscan) | (pressed ? 0x8000 : 0));
+        printf("Emulator_KeyEvent(%04o, %d)\n", vscan, pressed);
+        if (vscan == 0)
+            return;
+
+        if (pressed)
+            m_KeyboardMatrix[(vscan >> 8) & 7] |= (vscan & 0xff);
+        else
+            m_KeyboardMatrix[(vscan >> 8) & 7] &= ~(vscan & 0xff);
+
+        g_pBoard->UpdateKeyboardMatrix(m_KeyboardMatrix);
     }
 
 
