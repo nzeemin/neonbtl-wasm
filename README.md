@@ -26,4 +26,6 @@ The emulator recognizes and uses the following (optional) URL parameters:
 * `diskN=URL` — load disk image (.dsk file) from the URL and attach it; `N`=0..1
 * `run=1` — run the emulator
 
+For the `diskN` parameters it is allowed to use compressed images in .zip format; in this case the file name should end with `.zip`, the state or disk image file should be the only file in the archive.
+
 Note that the URLs are to download files from the Web by JavaScript code, so that's under restriction of Cross-Origin Resource Sharing (CORS) policy defined on your server.

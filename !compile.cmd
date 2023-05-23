@@ -6,7 +6,7 @@ CALL %EMSDKPATH%\emsdk_env.bat
 
 SET SOURCE=Emulator.cpp ^
  emubase\Disasm.cpp emubase\Board.cpp emubase\Processor.cpp emubase\Floppy.cpp emubase\Hard.cpp emubase\pit8253.cpp ^
- util\lz4.cpp
+ util\lz4.cpp miniz\zip.c
 
 @echo on
 
