@@ -11,8 +11,9 @@ NEONBTL. If not, see <http://www.gnu.org/licenses/>. */
 // Emulator.cpp
 
 #include "stdafx.h"
-#include "emubase\Emubase.h"
+#include "emubase/Emubase.h"
 #include <emscripten/emscripten.h>
+#include "util/lz4.h"
 
 
 // DebugPrint and DebugLog
@@ -84,9 +85,9 @@ extern "C" {
         g_okEmulatorInitialized = true;
     }
 
-    EMSCRIPTEN_KEEPALIVE uint32_t Emulator_GetUptime()
+    EMSCRIPTEN_KEEPALIVE float Emulator_GetUptime()
     {
-        return m_dwEmulatorUptime;
+        return m_dwEmulatorUptime + m_nUptimeFrameCount / 25.0;
     }
 
     EMSCRIPTEN_KEEPALIVE uint16_t Emulator_GetReg()
@@ -193,6 +194,84 @@ extern "C" {
         g_pBoard->UpdateKeyboardMatrix(m_KeyboardMatrix);
     }
 
+    EMSCRIPTEN_KEEPALIVE void Emulator_LoadImage()
+    {
+        const char * imageFileName = "/image";
+
+        Emulator_Stop();
+
+        // Open file
+        FILE* fpFile = ::fopen(imageFileName, "rb");
+        if (fpFile == nullptr)
+        {
+            remove(imageFileName);
+            printf("Emulator_LoadImage(): failed to open file\n");
+            return;
+        }
+
+        // Read header
+        uint32_t bufHeader[32 / sizeof(uint32_t)];
+        uint32_t dwBytesRead = ::fread(bufHeader, 1, 32, fpFile);
+        if (dwBytesRead != 32)
+        {
+            ::fclose(fpFile);
+            remove(imageFileName);
+            printf("Emulator_LoadImage(): failed to read file\n");
+            return;
+        }
+
+        // Allocate memory
+        int compressedSize = (int)bufHeader[5];
+        void* pCompressBuffer = ::calloc(compressedSize, 1);
+        if (pCompressBuffer == nullptr)
+        {
+            ::fclose(fpFile);
+            remove(imageFileName);
+            printf("Emulator_LoadImage(): calloc failed\n");
+            return;
+        }
+
+        // Read image
+        dwBytesRead = ::fread(pCompressBuffer, 1, compressedSize, fpFile);
+        ::fclose(fpFile);
+        remove(imageFileName);
+        if (dwBytesRead != compressedSize)
+        {
+            ::free(pCompressBuffer);
+            printf("Emulator_LoadImage(): failed to read file\n");
+            return;
+        }
+
+        uint32_t stateSize = bufHeader[3];
+        uint8_t* pImage = (uint8_t*) ::calloc(stateSize, 1);
+        if (pImage == nullptr)
+        {
+            printf("Emulator_LoadImage(): calloc failed\n");
+            return;
+        }
+
+        // Decompress the state body
+        int decompressedSize = LZ4_decompress_safe(
+                (const char*)pCompressBuffer, (char*)(pImage + 32), compressedSize, (int)stateSize - 32);
+        if (decompressedSize <= 0)
+        {
+            printf("Failed to decompress the emulator state.");
+            ::free(pCompressBuffer);
+            ::free(pImage);
+            return;
+        }
+        memcpy(pImage, bufHeader, 32);
+
+        // Restore emulator state from the image
+        g_pBoard->LoadFromImage(pImage);
+
+        m_dwEmulatorUptime = bufHeader[4];
+
+        // Free memory
+        ::free(pCompressBuffer);
+        ::free(pImage);
+        printf("Emulator_LoadImage() done\n");
+    }
 
 #ifdef __cplusplus
 }

@@ -195,10 +195,10 @@
                 <!--<input type="button" value="Frame" onclick="Module.systemFrame()">-->
                 <!--<input type="button" value="25 Frames" onclick="emulatorSystemFrame25()">-->
                 <!--<input type="button" value="Draw Screen" onclick="Module.drawScreen()">-->
-                <!--<div style="white-space: nowrap; margin-top: 8px;">
+                <div style="white-space: nowrap; margin-top: 8px;">
                     <input id="fileimg" type="file" onchange="emulatorLoadState(this);" style="display: none" />
                     <input type="button" id="loadimg" class="command-button" value="Load State…" onclick="document.getElementById('fileimg').click();" />
-                </div>-->
+                </div>
                 <div id="uptime" style="white-space: nowrap; margin-top: 8px; min-height: 24px;"></div>
                 <!--<div id="register" style="white-space: nowrap; margin-top: 8px; min-height: 24px;"></div>-->
             </div>
@@ -530,13 +530,7 @@
                 Module.ccall('Emulator_DetachFloppyImage', null, ['number'], [slot]);
             },
             emulatorLoadImage : function(data, filename) {
-                if (filename && filename.toLowerCase().endsWith('.zip')) {
-                    Module['FS_createDataFile']('/', 'zip', data, true, true, true);
-                    Module.ccall('Emulator_Unzip', null, ['string','string'], ['zip', 'image']);
-                }
-                else {
-                    Module['FS_createDataFile']('/', 'image', data, true, true, true);
-                }
+                Module['FS_createDataFile']('/', 'image', data, true, true, true);
                 Module.ccall('Emulator_LoadImage', null, null, null);
                 this.drawScreen();
             }
@@ -579,11 +573,12 @@
         function emulatorStart() {
             if (emulatorStarted) {
                 emulatorStarted = false;
-                document.getElementById('buttonStart').style.borderStyle = 'outset';
+                document.getElementById('buttonStart').style.backgroundColor = null;
+                document.getElementById('buttonStart').style.filter = null;
                 return;
             }
             emulatorStarted = true;
-            document.getElementById('buttonStart').style.borderStyle = 'inset';
+            document.getElementById('buttonStart').style.backgroundColor = '#ffc';
 
             //Module.emulatorStart();
 
@@ -600,7 +595,8 @@
             Module.drawScreen();
 
             var uptime = Module.ccall('Emulator_GetUptime', 'number', null, null);
-            document.getElementById('uptime').innerText = 'Uptime: ' + uptime.toString();
+            document.getElementById('uptime').innerText = 'Uptime: ' + Math.trunc(uptime).toString();
+            document.getElementById('buttonStart').style.filter = "hue-rotate(" + (uptime * 30 % 360).toString() + "deg)";
 
             setTimeout(emulatorNextFrame, 40);
         }
@@ -647,7 +643,7 @@
             if (fileInput.files.length == 0)
                 return;
             var file = fileInput.files[0];
-            if (file.size > 229888)
+            if (file.size == 0)
                 return;
 
             var fr = new FileReader();
