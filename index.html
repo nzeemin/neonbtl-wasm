@@ -397,7 +397,7 @@
                     if (paramState && paramState.substr(0, 4) == 'http') {
                         console.log('Loading state from ' + paramState);
                         var data = loadBinaryResource(paramState);
-                        if (!data || data.length > 229888) {
+                        if (!data) {
                             console.log('Failed to download the state image from ' + paramState);
                             return;
                         }

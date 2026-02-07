@@ -16,6 +16,8 @@ NEONBTL. If not, see <http://www.gnu.org/licenses/>. */
 #include "miniz/zip.h"
 #include "util/lz4.h"
 
+#define STRINGIZE(_x) STRINGIZE_(_x)
+#define STRINGIZE_(_x) #_x
 
 // DebugPrint and DebugLog
 void DebugPrint(LPCTSTR) {}
@@ -62,7 +64,9 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE void Emulator_Init()
     {
-        printf("Emulator_Init()\n");
+        printf("NeonBTL WASM built with Emscripten "
+                STRINGIZE(__EMSCRIPTEN_major__) "." STRINGIZE(__EMSCRIPTEN_minor__) "." STRINGIZE(__EMSCRIPTEN_tiny__)
+                " at " __DATE__ "\n");
 
         ::memset(m_KeyboardMatrix, 0, sizeof(m_KeyboardMatrix));
 
